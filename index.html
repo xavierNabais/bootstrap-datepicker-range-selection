@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Datepicker Modal</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> <!-- Adicionei o CSS do Bootstrap -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f8f9fa;
+            }
+   
+            .modal-window {
+                display: none;
+                position: fixed;
+                z-index: 999;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.5);
+                backdrop-filter: blur(5px);
+            }
+   
+            .modal-content {
+                background-color: #ffffff;
+                margin: 10% auto;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                width: 80%;
+            }
+   
+            .date-range-selected {
+                background-color: #007bff !important;
+                color: white !important;
+            }
+   
+            .btn-blue {
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+                transition: background-color 0.3s;
+            }
+   
+            .btn-blue:hover {
+                background-color: #0056b3;
+            }
+        </style>
+    </head>
+    <body>
+   
+        <div class="modal-window" id="open-datepicker-modal">
+            <div class="modal-content row col-5">
+                <div class="col-12 d-flex">
+                    <div class="datapickerhidden col-6" id="modal-data-1"></div>
+                    <div class="datapickerhidden col-6" id="modal-data-1"></div>
+                </div>
+                <span class="data" style="margin-top: 10px; display: block;">Date?</span>
+                <input type="hidden" name="data" class="datapicker hidden" value="">
+            </div>
+        </div>
+       
+
+    <!-- Scripts jQuery e Bootstrap Datepicker -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+
+    <script>
+        let startDateSelected = null;
+        let endDateSelected = null;
+
+        $(document).ready(function () {
+            $('.datapickerhidden').each(function() {
+                const today = new Date();
+               
+                $(this).datepicker({
+                    language: "en", // Set language to English
+                    format: 'yyyy-mm-dd',
+                    todayHighlight: true,
+                    autoclose: false,
+                    startDate: today,
+                    multidate: true,
+                    updateViewDate:false,
+                    beforeShowDay: function(date) {
+                        if (startDateSelected == null || endDateSelected == null) {
+                            return [];
+                        }
+                        // Update classes for days within the range
+                        if (date.getTime() >= startDateSelected.getTime() && date.getTime() <= endDateSelected.getTime()) {
+                            return {
+                                'classes': 'date-range-selected text-white',
+                            };
+                        }
+                    },
+                    beforeShowMonth: function(date) {
+                        const nextMonth = new Date();
+                        nextMonth.setMonth(today.getMonth() + 1);
+                       
+                        // Disable going back to unavailable months
+                        if (date.getMonth() === nextMonth.getMonth() && date.getFullYear() === nextMonth.getFullYear()) {
+                            return {
+                                prevDisabled: true
+                            };
+                        }
+                        return {};
+                    },
+                    // Prevent automatic month change
+                    onRender: function(date) {
+                        const isStartOfMonth = date.getDate() === 1;
+                        const isEndOfMonth = date.getDate() === new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+                        return [!isStartOfMonth && !isEndOfMonth];
+                    }
+                })
+                .on('changeDate', function(e) {
+                    handleRangeDays(e);
+                    syncDates(e);
+                })
+                .on('show', function(e) {
+                    handleRangeDays(e);
+                })
+                .on('changeMonth', function(e) {
+                    orderMonth(e);
+                });
+            });
+
+            // Function to sync months between the two calendars
+            function orderMonth(e) {
+                const target = e.target;
+                const date = e.date;
+
+                const $parent = $(e.currentTarget).parents('div#open-datepicker-modal');
+                const calendars = $('.datapickerhidden', $parent);
+           
+                const positionOfTarget = calendars.index(target);
+           
+                calendars.each(function() {
+                    if (this === target) return;
+                   
+                    // Adjust the months of the calendars
+                    const newMonth = positionOfTarget === 0 ? date.getMonth() + 1 : date.getMonth() - 1;
+                    const newDate = new Date(date.getFullYear(), newMonth, 10);
+           
+                    $(this).datepicker('_setDate', newDate, 'view');
+                });
+            }
+        });
+
+        // Function to handle the days between check-in and check-out
+        function handleRangeDays(e) {
+            const selectedDates = $(e.currentTarget).datepicker('getDates');
+
+            $('td[data-date]', e.currentTarget).removeClass('date-range-selected text-white');
+
+            if (selectedDates.length === 0) {
+                // Reset dates when all selections are deselected
+                startDateSelected = null;
+                endDateSelected = null;
+                $('.data').text('Date?');
+            } else if (selectedDates.length === 1) {
+                startDateSelected = selectedDates[0];
+                endDateSelected = selectedDates[0];
+            } else if (selectedDates.length === 2) {
+                if (selectedDates[0] < selectedDates[1]) {
+                    startDateSelected = selectedDates[0];
+                    endDateSelected = selectedDates[1];
+                } else {
+                    startDateSelected = selectedDates[1];
+                    endDateSelected = selectedDates[0];
+                }
+
+                // Mark the date range between check-in and check-out
+                $('td[data-date]', e.currentTarget).each(function() {
+                    const currentTimestamp = parseInt($(this).data('date'), 10);
+
+                    if (currentTimestamp >= startDateSelected.getTime() && currentTimestamp <= endDateSelected.getTime()) {
+                        $(this).addClass('date-range-selected text-white');
+                    }
+                });
+
+                // Update displayed value
+                const dateRangeText = startDateSelected.toLocaleDateString() + ' to ' + endDateSelected.toLocaleDateString();
+                const $parent = $(e.currentTarget).parents('div#open-datepicker-modal');
+                $parent.find('.datapicker.hidden').val(dateRangeText);
+                $parent.find('span.data').html(dateRangeText); // Update span with the selected dates
+            } else if (selectedDates.length > 2) {
+                // Block selection of more than two dates
+                $(e.currentTarget).datepicker('setDates', selectedDates.slice(0, 2));
+            }
+        }
+
+        // Function to sync date selection between calendars
+        function syncDates(e) {
+            const $parent = $(e.currentTarget).parents('div#open-datepicker-modal');
+            const calendars = $('.datapickerhidden', $parent);
+            const selectedDates = $(e.currentTarget).datepicker('getDates');
+
+            // Get the index of the calendar that triggered the event
+            const index = calendars.index(e.currentTarget);
+
+            // Set the selected date in the opposite calendar
+            calendars.each(function(i) {
+                if (i !== index) {
+                    const currentDates = $(this).datepicker('getDates');
+                   
+                    if (JSON.stringify(currentDates) !== JSON.stringify(selectedDates)) {
+                        $(this).datepicker('setDates', selectedDates);
+                    }
+                }
+            });
+        }
+
+        $(window).on('load', function() {
+        $('#open-datepicker-modal').show(); // Show modal
+    });
+    </script>
+</body>
+</html>
